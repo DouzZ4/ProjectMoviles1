@@ -13,7 +13,7 @@ class AppTheme {
         seedColor: AppColors.primary,
         primary: AppColors.primary,
         secondary: AppColors.secondary,
-        background: AppColors.background,
+        surface: AppColors.background,
         error: AppColors.accent, // Usa el acento para errores, por ejemplo
         brightness: Brightness.light,
       ),
