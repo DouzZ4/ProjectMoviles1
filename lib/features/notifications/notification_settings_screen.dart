@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // 1. Importa Provider
-import 'notification_settings_provider.dart'; // 2. Importa el Provider de Notificaciones
-import '../../core/theme/colors.dart'; // Importa colores
+import 'package:provider/provider.dart';
+import 'notification_settings_provider.dart';
+import '../../core/theme/colors.dart';
 import 'package:flutter/foundation.dart'; // Para kDebugMode
 
 // Importa la pantalla principal si la tienes para la navegación final
@@ -22,14 +22,14 @@ class NotificationSettingsScreen extends StatelessWidget {
     // TODO: Implementar navegación REAL a la pantalla principal (DashboardScreen)
     if (!context.mounted) return; // Buena práctica: comprobar antes de navegar
     // Navigator.of(context).pushAndRemoveUntil(
-    //   MaterialPageRoute(builder: (_) => const DashboardScreen()),
-    //   (route) => false, // Elimina todas las rutas anteriores (onboarding)
+    //   MaterialPageRoute(builder: (_) => const DashboardScreen()),
+    //   (route) => false, // Elimina todas las rutas anteriores (onboarding)
     // );
   }
 
   @override
   Widget build(BuildContext context) {
-    // 3. Obtén la instancia del provider y escucha cambios (`watch`)
+    // Obtén la instancia del provider y escucha cambios (`watch`)
     final settingsProvider = context.watch<NotificationSettingsProvider>();
     final textTheme = Theme.of(context).textTheme; // Para estilos de texto
 
@@ -71,7 +71,7 @@ class NotificationSettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 32), // Más espacio
-          // --- 4. Interruptor General ---
+          // --- Interruptor General (CORREGIDO: PRIMERO EL SWITCH GENERAL) ---
           Card(
             // Envuelve en una Card para darle un fondo y borde sutil (opcional)
             elevation: 0.5,
@@ -94,23 +94,25 @@ class NotificationSettingsScreen extends StatelessWidget {
                   color: AppColors.textSecondary,
                 ),
               ),
-              // 5. Vincula el valor al estado del provider
-              value: settingsProvider.notificationsEnabled,
-              // 6. Llama al método del provider cuando cambia el valor
+              value:
+                  settingsProvider
+                      .notificationsEnabled, // Vincula el valor al estado del provider
               onChanged: (bool newValue) {
+                // Llama al método del provider cuando cambia el valor
                 // Usa 'read' dentro de callbacks
                 context
                     .read<NotificationSettingsProvider>()
                     .updateNotificationsEnabled(newValue);
               },
-              // Estilos visuales (opcional, usa el tema por defecto o personaliza)
               activeColor: AppColors.white, // Color del círculo del switch
               activeTrackColor:
                   AppColors.primary, // Color de la pista encendida
               inactiveThumbColor: AppColors.white,
-              inactiveTrackColor: AppColors.mediumGrey.withOpacity(0.5),
-              // Icono que también cambia (opcional)
+              inactiveTrackColor: AppColors.mediumGrey.withAlpha(
+                (255 * 0.5).round(),
+              ), // Usa withAlpha
               secondary: Icon(
+                // Icono que también cambia (opcional)
                 settingsProvider.notificationsEnabled
                     ? Icons
                         .notifications_active // Icono activo
@@ -133,19 +135,191 @@ class NotificationSettingsScreen extends StatelessWidget {
             indent: 16,
             endIndent: 16,
           ), // Separador visual
-          // --- Aquí añadiremos los otros controles ---
-          // Mostraremos las otras opciones solo si las notificaciones están habilitadas
+          // --- Controles Detallados (SOLO SI ESTÁN ACTIVADAS LAS NOTIFICACIONES) ---
           if (settingsProvider.notificationsEnabled) ...[
-            const Center(
-              child: Text(
-                'Configuración adicional aparecerá aquí...',
+            // --- Selector de Hora de Recordatorio Diario (CORREGIDO: DENTRO DEL IF) ---
+            ListTile(
+              leading: const Icon(
+                Icons.alarm_outlined,
+                color: AppColors.primary,
+              ),
+              title: const Text('Recordatorio diario'),
+              subtitle: Text(
+                settingsProvider.dailyReminderTime == null
+                    ? 'No establecido'
+                    : settingsProvider.dailyReminderTime!.format(
+                      context,
+                    ), // Muestra hora formateada
                 style: TextStyle(color: AppColors.textSecondary),
               ),
+              trailing: const Icon(
+                Icons.edit_outlined,
+                size: 20,
+                color: AppColors.mediumGrey,
+              ),
+              onTap: () async {
+                final TimeOfDay? currentTime =
+                    settingsProvider.dailyReminderTime;
+                final TimeOfDay? selectedTime = await showTimePicker(
+                  context: context,
+                  initialTime:
+                      currentTime ??
+                      const TimeOfDay(hour: 9, minute: 0), // Hora por defecto
+                  helpText:
+                      'SELECCIONA HORA DEL RECORDATORIO', // Texto de ayuda
+                );
+                if (selectedTime != null) {
+                  context
+                      .read<NotificationSettingsProvider>()
+                      .updateDailyReminderTime(selectedTime);
+                }
+              },
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
             ),
-            // TODO: Añadir selector de hora, horas de silencio, vibración
+            const SizedBox(height: 24), // Espacio
+            // --- Horas de Silencio (No Molestar) (CORREGIDO: DENTRO DEL IF) ---
+            SwitchListTile(
+              secondary: Icon(
+                Icons.bedtime_outlined, // Icono de luna/dormir
+                color:
+                    settingsProvider.quietHoursEnabled
+                        ? AppColors.primary
+                        : AppColors.mediumGrey,
+              ),
+              title: const Text('Horas de silencio'),
+              subtitle: Text(
+                settingsProvider.quietHoursEnabled
+                    ? 'Notificaciones silenciadas durante este periodo.'
+                    : 'Puedes recibir notificaciones a cualquier hora.',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              value:
+                  settingsProvider.quietHoursEnabled, // Vinculado al provider
+              onChanged: (bool newValue) {
+                // Actualiza el estado en el provider
+                context
+                    .read<NotificationSettingsProvider>()
+                    .updateQuietHoursEnabled(newValue);
+              },
+              activeColor: AppColors.white,
+              activeTrackColor: AppColors.primary,
+              inactiveThumbColor: AppColors.white,
+              inactiveTrackColor: AppColors.mediumGrey.withAlpha(
+                (255 * 0.5).round(),
+              ), // Usa withAlpha
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+
+            // Selectores de Hora (Solo si las Horas de Silencio están activadas)
+            if (settingsProvider.quietHoursEnabled) ...[
+              Padding(
+                // Indentación para mostrar que depende del switch anterior
+                padding: const EdgeInsets.only(
+                  left: 50.0,
+                  right: 8.0,
+                  top: 4.0,
+                ),
+                child: Column(
+                  children: [
+                    // ListTile para Hora de Inicio
+                    ListTile(
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Desde',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                      trailing: TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        onPressed: () async {
+                          final TimeOfDay? currentStartTime =
+                              settingsProvider.quietHoursStartTime;
+                          final TimeOfDay? selectedTime = await showTimePicker(
+                            context: context,
+                            initialTime:
+                                currentStartTime ??
+                                const TimeOfDay(hour: 22, minute: 0),
+                            helpText: 'INICIO HORAS DE SILENCIO',
+                          );
+                          if (selectedTime != null) {
+                            context
+                                .read<NotificationSettingsProvider>()
+                                .updateQuietHoursStartTime(selectedTime);
+                          }
+                        },
+                        child: Text(
+                          // Muestra hora seleccionada
+                          settingsProvider.quietHoursStartTime?.format(
+                                context,
+                              ) ??
+                              'Establecer',
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // ListTile para Hora de Fin
+                    ListTile(
+                      dense: true,
+                      visualDensity: VisualDensity.compact,
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Hasta',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                      trailing: TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                        ),
+                        onPressed: () async {
+                          final TimeOfDay? currentEndTime =
+                              settingsProvider.quietHoursEndTime;
+                          final TimeOfDay? selectedTime = await showTimePicker(
+                            context: context,
+                            initialTime:
+                                currentEndTime ??
+                                const TimeOfDay(hour: 7, minute: 0),
+                            helpText: 'FIN HORAS DE SILENCIO',
+                          );
+                          if (selectedTime != null) {
+                            context
+                                .read<NotificationSettingsProvider>()
+                                .updateQuietHoursEndTime(selectedTime);
+                          }
+                        },
+                        child: Text(
+                          // Muestra hora seleccionada
+                          settingsProvider.quietHoursEndTime?.format(context) ??
+                              'Establecer',
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ], // Fin del if quietHoursEnabled
+
+            const SizedBox(height: 24), // Espacio
+
+            // TODO: Añadir Interruptor de Vibración (iría aquí)
           ] else ...[
+            // Mensaje cuando las notificaciones están desactivadas
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 24.0,
+              ), // Padding para centrar un poco más
               child: Text(
                 'Activa las notificaciones para configurar recordatorios y otras opciones.',
                 textAlign: TextAlign.center,
@@ -154,7 +328,7 @@ class NotificationSettingsScreen extends StatelessWidget {
                 ),
               ),
             ),
-          ],
+          ], // Fin del if settingsProvider.notificationsEnabled
 
           const SizedBox(height: 40), // Espacio antes del botón final
           // Botón Finalizar
