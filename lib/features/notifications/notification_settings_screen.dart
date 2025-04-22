@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'notification_settings_provider.dart';
 import '../../core/theme/colors.dart';
-import 'package:flutter/foundation.dart'; // Para kDebugMode
-
-// Importa la pantalla principal si la tienes para la navegación final
-// import '../dashboard/dashboard_screen.dart';
+import 'package:flutter/foundation.dart';
+import '../dashboard/dashboard_screen.dart';
 
 class NotificationSettingsScreen extends StatelessWidget {
   const NotificationSettingsScreen({super.key});
@@ -19,12 +17,11 @@ class NotificationSettingsScreen extends StatelessWidget {
       print('Onboarding Finalizado! Navegando a la app principal...');
     }
 
-    // TODO: Implementar navegación REAL a la pantalla principal (DashboardScreen)
-    if (!context.mounted) return; // Buena práctica: comprobar antes de navegar
-    // Navigator.of(context).pushAndRemoveUntil(
-    //   MaterialPageRoute(builder: (_) => const DashboardScreen()),
-    //   (route) => false, // Elimina todas las rutas anteriores (onboarding)
-    // );
+    if (!context.mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const DashboardScreen()),
+      (route) => false, // Elimina todas las rutas anteriores
+    );
   }
 
   @override
@@ -209,6 +206,34 @@ class NotificationSettingsScreen extends StatelessWidget {
               ), // Usa withAlpha
               contentPadding: const EdgeInsets.symmetric(horizontal: 8),
             ),
+            SwitchListTile(
+              secondary: Icon(
+                Icons.vibration,
+                color:
+                    settingsProvider.vibrationEnabled
+                        ? AppColors.primary
+                        : AppColors.mediumGrey,
+              ),
+              title: const Text('Vibrar al notificar'),
+              subtitle: Text(
+                settingsProvider.vibrationEnabled ? 'Activado' : 'Desactivado',
+                style: TextStyle(color: AppColors.textSecondary),
+              ),
+              value: settingsProvider.vibrationEnabled, // Vinculado al provider
+              onChanged: (bool newValue) {
+                // Actualiza el estado en el provider
+                context
+                    .read<NotificationSettingsProvider>()
+                    .updateVibrationEnabled(newValue);
+              },
+              activeColor: AppColors.white,
+              activeTrackColor: AppColors.primary,
+              inactiveThumbColor: AppColors.white,
+              inactiveTrackColor: AppColors.mediumGrey.withAlpha(
+                (255 * 0.5).round(),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
 
             // Selectores de Hora (Solo si las Horas de Silencio están activadas)
             if (settingsProvider.quietHoursEnabled) ...[
@@ -311,7 +336,6 @@ class NotificationSettingsScreen extends StatelessWidget {
             ], // Fin del if quietHoursEnabled
 
             const SizedBox(height: 24), // Espacio
-
             // TODO: Añadir Interruptor de Vibración (iría aquí)
           ] else ...[
             // Mensaje cuando las notificaciones están desactivadas
