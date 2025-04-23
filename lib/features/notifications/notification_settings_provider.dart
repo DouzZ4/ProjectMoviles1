@@ -1,88 +1,132 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart'; // Para kDebugMode
+// Importa el NUEVO modelo y el servicio
+import '../../core/models/notification_settings.dart';
+import '../../core/services/database_service.dart';
 
 class NotificationSettingsProvider with ChangeNotifier {
-  // --- Estado Privado ---
+  // --- Dependencias ---
+  // Usa el servicio de base de datos sqflite
+  final DatabaseService _dbService = DatabaseService();
 
-  // Estado inicial de las notificaciones (ej: activadas por defecto)
-  bool _notificationsEnabled = true;
-  // Hora por defecto para recordatorio (ej: 9:00 AM)
-  TimeOfDay? _dailyReminderTime = const TimeOfDay(hour: 9, minute: 0);
-  // Horas de silencio desactivadas por defecto
-  bool _quietHoursEnabled = false;
-  // Horas de silencio por defecto (ej: 10 PM a 7 AM)
-  TimeOfDay? _quietHoursStartTime = const TimeOfDay(hour: 22, minute: 0);
-  TimeOfDay? _quietHoursEndTime = const TimeOfDay(hour: 7, minute: 0);
-  // Vibración activada por defecto
-  bool _vibrationEnabled = true;
+  // --- Estado Interno ---
+  bool _isLoading = true; // Mantenemos estado de carga inicial
+  NotificationSettings _currentSettings =
+      NotificationSettings(); // Guarda el objeto completo
 
-  // --- Getters Públicos ---
+  // --- Getters Públicos (Ahora leen desde _currentSettings) ---
+  bool get isLoading => _isLoading;
+  bool get notificationsEnabled => _currentSettings.notificationsEnabled;
+  TimeOfDay? get dailyReminderTime => _currentSettings.dailyReminderTime;
+  bool get quietHoursEnabled => _currentSettings.quietHoursEnabled;
+  TimeOfDay? get quietHoursStartTime => _currentSettings.quietHoursStartTime;
+  TimeOfDay? get quietHoursEndTime => _currentSettings.quietHoursEndTime;
+  bool get vibrationEnabled => _currentSettings.vibrationEnabled;
 
-  bool get notificationsEnabled => _notificationsEnabled;
-  TimeOfDay? get dailyReminderTime => _dailyReminderTime;
-  bool get quietHoursEnabled => _quietHoursEnabled;
-  TimeOfDay? get quietHoursStartTime => _quietHoursStartTime;
-  TimeOfDay? get quietHoursEndTime => _quietHoursEndTime;
-  bool get vibrationEnabled => _vibrationEnabled;
+  // --- Inicialización ---
+  NotificationSettingsProvider() {
+    _loadSettings(); // Carga al iniciar
+  }
 
-  // --- Métodos Públicos para Actualizar Estado ---
+  // Carga la configuración usando el servicio sqflite
+  Future<void> _loadSettings() async {
+    if (kDebugMode) print("Provider: Iniciando carga desde DatabaseService...");
+    _isLoading = true;
+    notifyListeners(); // Notifica que está cargando
+
+    try {
+      _currentSettings =
+          await _dbService.getSettings(); // Llama al servicio sqflite
+      if (kDebugMode)
+        print(
+          "Provider: Configuración cargada desde DB (ID: ${_currentSettings.id})",
+        );
+    } catch (e) {
+      if (kDebugMode) print("Provider: Error cargando configuración: $e");
+      // Mantiene los defaults si hay error
+      _currentSettings = NotificationSettings();
+    } finally {
+      _isLoading = false;
+      notifyListeners(); // Notifica que terminó la carga (con datos o defaults)
+      if (kDebugMode) print("Provider: Carga finalizada, notificando UI.");
+      // debugPrintState(); // Llama al debug si lo tienes
+    }
+  }
+
+  // --- Métodos Update (Actualizan estado interno Y llaman a guardar) ---
 
   void updateNotificationsEnabled(bool value) {
-    if (_notificationsEnabled != value) {
-      _notificationsEnabled = value;
+    if (_currentSettings.notificationsEnabled != value) {
+      _currentSettings.notificationsEnabled = value;
       notifyListeners();
+      _saveCurrentSettings(); // Llama al guardado
     }
   }
 
   void updateDailyReminderTime(TimeOfDay? newTime) {
-    // TimeOfDay es inmutable, así que la comparación directa funciona
-    if (_dailyReminderTime != newTime) {
-      _dailyReminderTime = newTime;
+    if (_currentSettings.dailyReminderTime != newTime) {
+      _currentSettings.dailyReminderTime = newTime;
       notifyListeners();
+      _saveCurrentSettings();
     }
   }
 
   void updateQuietHoursEnabled(bool value) {
-    if (_quietHoursEnabled != value) {
-      _quietHoursEnabled = value;
+    if (_currentSettings.quietHoursEnabled != value) {
+      _currentSettings.quietHoursEnabled = value;
       notifyListeners();
+      _saveCurrentSettings();
     }
   }
 
   void updateQuietHoursStartTime(TimeOfDay? newTime) {
-    if (_quietHoursStartTime != newTime) {
-      _quietHoursStartTime = newTime;
-      // Podrías añadir lógica para asegurar que start sea antes que end
+    if (_currentSettings.quietHoursStartTime != newTime) {
+      _currentSettings.quietHoursStartTime = newTime;
       notifyListeners();
+      _saveCurrentSettings();
     }
   }
 
   void updateQuietHoursEndTime(TimeOfDay? newTime) {
-    if (_quietHoursEndTime != newTime) {
-      _quietHoursEndTime = newTime;
-      // Podrías añadir lógica para asegurar que end sea después que start
+    if (_currentSettings.quietHoursEndTime != newTime) {
+      _currentSettings.quietHoursEndTime = newTime;
       notifyListeners();
+      _saveCurrentSettings();
     }
   }
 
   void updateVibrationEnabled(bool value) {
-    if (_vibrationEnabled != value) {
-      _vibrationEnabled = value;
+    if (_currentSettings.vibrationEnabled != value) {
+      _currentSettings.vibrationEnabled = value;
       notifyListeners();
+      _saveCurrentSettings();
     }
   }
 
-  // --- Método para Guardar (Placeholder) ---
+  // Guarda el estado ACTUAL (_currentSettings) usando el servicio sqflite
+  Future<void> _saveCurrentSettings() async {
+    if (_isLoading) return; // Evita guardar si aún está cargando
+    if (kDebugMode) print("Provider: Guardando configuración actual en DB...");
+    try {
+      // Pasa el objeto _currentSettings completo al servicio
+      await _dbService.saveSettings(_currentSettings);
+      if (kDebugMode) print("Provider: Guardado exitoso.");
+    } catch (e) {
+      if (kDebugMode) print("Provider: Error guardando configuración: $e");
+    }
+  }
+
+  // Método público llamado por el botón "Finalizar"
   Future<void> saveSettings() async {
-    // TODO: Implementar la lógica para guardar estas preferencias
-    // usando SharedPreferences, una base de datos local, o un backend.
-    print('Guardando configuración de notificaciones:');
-    print('- Enabled: $_notificationsEnabled');
-    print('- Reminder Time: $_dailyReminderTime');
-    print('- Quiet Hours Enabled: $_quietHoursEnabled');
-    print('- Quiet Hours Start: $_quietHoursStartTime');
-    print('- Quiet Hours End: $_quietHoursEndTime');
-    print('- Vibration Enabled: $_vibrationEnabled');
-    // Simula un pequeño retraso como si se estuviera guardando
-    await Future.delayed(const Duration(milliseconds: 300));
+    // Asegura que el último estado se guarde
+    await _saveCurrentSettings();
+  }
+
+  // (Opcional) Método de depuración actualizado
+  void debugPrintState() {
+    print("--- Estado actual del NotificationSettingsProvider (sqflite) ---");
+    print("isLoading: $_isLoading");
+    print("Datos actuales: ${_currentSettings.toMap()}"); // Muestra el mapa
+    print("-----------------------------------------------");
   }
 }
